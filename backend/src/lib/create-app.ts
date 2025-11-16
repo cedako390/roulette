@@ -1,0 +1,39 @@
+import type { Schema } from "hono";
+
+import { OpenAPIHono } from "@hono/zod-openapi";
+import { requestId } from "hono/request-id";
+import { notFound, onError, serveEmojiFavicon } from "stoker/middlewares";
+import { defaultHook } from "stoker/openapi";
+
+import { authMiddleware } from "@/middlewares/auth";
+import { pinoLogger } from "@/middlewares/pino-logger";
+
+import { cors } from 'hono/cors'
+import type { AppBindings, AppOpenAPI } from "./types";
+
+export function createRouter() {
+  return new OpenAPIHono<AppBindings>({
+    strict: false,
+    defaultHook,
+  });
+}
+
+export default function createApp() {
+  const app = createRouter();
+  app.use(cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  }));
+  app.use(requestId())
+    .use(serveEmojiFavicon("📝"))
+    // .use(pinoLogger())
+    .use(authMiddleware);
+
+  app.notFound(notFound);
+  app.onError(onError);
+  return app;
+}
+
+export function createTestApp<S extends Schema>(router: AppOpenAPI<S>) {
+  return createApp().route("/", router);
+}
